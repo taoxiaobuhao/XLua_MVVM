@@ -71,11 +71,6 @@
     <Compile Include="Assets\XLua\Gen\EnumWrap.cs" />
     <Compile Include="Assets\XLua\Gen\LuaBehaviourWrap.cs" />
     <Compile Include="Assets\XLua\Gen\PackUnpack.cs" />
-    <Compile Include="Assets\XLua\Gen\Tutorial_BaseClassWrap.cs" />
-    <Compile Include="Assets\XLua\Gen\Tutorial_CSCallLua_ItfDBridge.cs" />
-    <Compile Include="Assets\XLua\Gen\Tutorial_DerivedClassExtensionsWrap.cs" />
-    <Compile Include="Assets\XLua\Gen\Tutorial_DerivedClassWrap.cs" />
-    <Compile Include="Assets\XLua\Gen\Tutorial_ICalcWrap.cs" />
     <Compile Include="Assets\XLua\Gen\WrapPusher.cs" />
     <Compile Include="Assets\XLua\Gen\XLuaGenAutoRegister.cs" />
     <Compile Include="Assets\XLua\Gen\XLuaManagerWrap.cs" />
@@ -102,13 +97,6 @@
     <Compile Include="Assets\XLua\Src\TemplateEngine\TemplateEngine.cs" />
     <Compile Include="Assets\XLua\Src\TypeExtensions.cs" />
     <Compile Include="Assets\XLua\Src\Utils.cs" />
-    <Compile Include="Assets\XLua\Tutorial\CSharpCallLua\CSCallLua.cs" />
-    <Compile Include="Assets\XLua\Tutorial\LoadLuaScript\ByFile\ByFile.cs" />
-    <Compile Include="Assets\XLua\Tutorial\LoadLuaScript\ByString\ByString.cs" />
-    <Compile Include="Assets\XLua\Tutorial\LoadLuaScript\Loader\CustomLoader.cs" />
-    <Compile Include="Assets\XLua\Tutorial\LuaCallCSharp\LuaCallCs.cs" />
-    <None Include="Assets\LuaScripts\Resources\Common\Updatable.lua.txt" />
-    <None Include="Assets\XLua\Tutorial\LoadLuaScript\ByFile\Resources\byfile.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\DataBinding\Binder\ConstantCollectionBinder.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\event.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Utils\AutoParameter.lua.txt" />
@@ -129,7 +117,6 @@
     <None Include="Assets\LuaScripts\Resources\DataBinding\Binder\ImageBinder.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\ConstClass.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\Messenger.lua.txt" />
-    <None Include="Assets\LuaScripts\Resources\Common\UpdatableSingleton.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\TableUtil.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\DataClass.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\DataBinding\DataContext\DataContext.lua.txt" />
