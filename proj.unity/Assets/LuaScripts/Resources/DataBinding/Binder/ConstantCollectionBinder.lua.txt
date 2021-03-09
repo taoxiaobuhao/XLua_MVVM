@@ -1,0 +1,24 @@
+if package.loaded["DataBinding/Binder/ConstantCollectionBinder"] ~= nil then
+    return package.loaded["DataBinding/Binder/ConstantCollectionBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+
+local ConstantCollectionBinder = BaseClass("ConstantCollectionBinder")
+
+function ConstantCollectionBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+end
+
+--MonoBehaviour
+function ConstantCollectionBinder:Awake()
+	ConstantCollectionBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])	
+end
+
+function ConstantCollectionBinder:Start()
+end
+
+--ConstantCollectionBinder
+
+package.loaded["DataBinding/Binder/ConstantCollectionBinder"] = ConstantCollectionBinder
+return ConstantCollectionBinder

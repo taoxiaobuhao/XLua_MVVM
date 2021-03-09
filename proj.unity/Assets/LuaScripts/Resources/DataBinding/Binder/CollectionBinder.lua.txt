@@ -1,0 +1,62 @@
+if package.loaded["DataBinding/Binder/CollectionBinder"] ~= nil then
+	return package.loaded["DataBinding/Binder/CollectionBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+local DynamicCollectionBinding = require "DataBinding/Binding/DynamicCollectionBinding"
+
+local CollectionBinder = BaseClass("CollectionBinder")
+
+function CollectionBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:Label("需绑定ObservableList类型对象")
+	AutoParameter:ValueParam("collectionPath", AutoParameter.Value_String)
+	AutoParameter:ReferenceParam("itemPrefab", AutoParameter.Property_GameObject)
+	AutoParameter:ComponentParam("container", "UnityEngine.Transform")
+end
+
+--MonoBehaviour
+function CollectionBinder:Awake()
+	CollectionBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function CollectionBinder:Start()
+	self.bindingList = {}
+	local binding = DynamicCollectionBinding.CreateBinding(self.collectionPath, self)
+	table.insert(self.bindingList, binding)
+	self.dataContext = BindingManager.AddBindings(self.bindingList, self.this.transform)
+end
+
+function CollectionBinder:OnDestroy()
+	BindingManager.RemoveBindings(self.bindingList, self.dataContext)
+end
+
+--CollectionBinder
+
+--region IViewFactory
+
+function CollectionBinder:CreateViewItem()
+	local enumerator = self.container:GetEnumerator()
+	while enumerator:MoveNext() do
+		local item = enumerator.Current.gameObject
+		if item.activeInHierarchy == false then
+			item:SetActive(true)
+			return item
+		end
+	end
+	local newItem = CS.UnityEngine.GameObject.Instantiate(self.itemPrefab, CS.UnityEngine.Vector3.zero, CS.UnityEngine.Quaternion.identity)
+	newItem:SetActive(true)
+	newItem.transform:SetParent(self.container)
+	newItem.transform.localPosition = CS.UnityEngine.Vector3.zero
+	newItem.transform.localScale = CS.UnityEngine.Vector3.one
+	return newItem
+end
+
+function CollectionBinder:ReleaseViewItem(viewItem)
+	viewItem:SetActive(false)
+end
+
+--endregion
+
+package.loaded["DataBinding/Binder/CollectionBinder"] = CollectionBinder
+return CollectionBinder

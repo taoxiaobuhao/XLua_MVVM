@@ -1,0 +1,36 @@
+if package.loaded["DataBinding/TestP001/P001ViewModel"] ~= nil then
+	return package.loaded["DataBinding/TestP001/P001ViewModel"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+local ObservableData = require "DataBinding/Binding/ObservableData"
+
+local P001ViewModel = BaseClass("P001ViewModel")
+
+function P001ViewModel.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+end
+
+--MonoBehaviour
+function P001ViewModel:Awake()
+	P001ViewModel.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function P001ViewModel:Start()
+	self.P001ViewModel = {
+		MainScrollSideBarState = "HideAll",
+		SubScrollSideBarState = "HideAll",
+	}
+	ObservableData.new(self.P001ViewModel, "P001ViewModel")
+	
+	ScreenManager.instance:PushState("P002Menu")
+end
+
+function P001ViewModel:OnDestroy()
+	ObservableData.dispose(self.P001ViewModel)
+end
+
+--P001ViewModel
+
+package.loaded["DataBinding/TestP001/P001ViewModel"] = P001ViewModel
+return P001ViewModel

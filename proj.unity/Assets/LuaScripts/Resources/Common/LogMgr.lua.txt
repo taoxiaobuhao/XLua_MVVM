@@ -1,0 +1,28 @@
+LogMgr = {}
+
+LogMgr.EnableDebug = true
+
+LogMgr.Log = function(...)
+	if LogMgr.EnableDebug then
+		print(...)
+	end
+end
+
+LogMgr.LogError = function(...)
+	if LogMgr.EnableDebug then
+		local str = ""
+		for i, v in pairs({ ... }) do
+			str = str .. tostring(v) .. ","
+		end
+		print("<color=red>" .. str .. "</color>")
+	end
+end
+
+---@public 错误
+LogMgr.Error = function(...)
+	if LogMgr.EnableDebug then
+		error(...)
+	end
+end
+
+return LogMgr

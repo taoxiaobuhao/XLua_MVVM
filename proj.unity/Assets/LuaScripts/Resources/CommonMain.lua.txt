@@ -1,0 +1,17 @@
+--Unity Object
+UnityEngine = CS.UnityEngine ---@type UnityEngine
+GameObject = UnityEngine.GameObject ---@type UnityEngine.GameObject
+Transform = UnityEngine.Transform ---@type UnityEngine.Transform
+Vector3 = UnityEngine.Vector3 ---@type UnityEngine.Vector3
+Vector2 = UnityEngine.Vector2 ---@type UnityEngine.Vector2
+Time = UnityEngine.Time ---@type UnityEngine.Time
+
+require "Common/BaseClass"
+require "Common/StringUtil"
+require "Common.Object"
+
+util = require "xlua.util"
+LogMgr = require "Common/LogMgr"
+BindingManager = require "DataBinding/Binding/BindingManager"
+GameUtil = require "Utils/GameUtil"
+

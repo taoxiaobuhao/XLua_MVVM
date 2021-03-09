@@ -1,0 +1,45 @@
+if package.loaded["DataBinding/Binder/TextBinder"] ~= nil then
+	return package.loaded["DataBinding/Binder/TextBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local Binding = require "DataBinding/Binding/Binding"
+
+local TextBinder = BaseClass("TextBinder")
+
+function TextBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:ValueParam("path", AutoParameter.Value_String)
+end
+
+--MonoBehaviour
+function TextBinder:Awake()
+	TextBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function TextBinder:Start()
+	self.target = self.this:GetComponent(typeof(UnityEngine.UI.Text))
+	if IsNull(self.target) then
+		UnityEngine.Debug.LogError("Require Text Component ", self.this.gameObject)
+		return
+	end
+	
+	self.binding = Binding.CreateBinding(self.path, self, "Text")
+	self.dataContext = BindingManager.AddBinding(self.binding, self.this.transform)
+end
+
+function TextBinder:OnDestroy()
+	BindingManager.RemoveBinding(self.binding, self.dataContext)
+end
+
+--TextBinder
+
+function TextBinder:set_Text(value)
+	if self.text == value then
+		return
+	end
+	self.text = value
+	self.target.text = value
+end
+
+package.loaded["DataBinding/Binder/TextBinder"] = TextBinder
+return TextBinder

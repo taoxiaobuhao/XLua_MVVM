@@ -1,0 +1,80 @@
+local EventHandlers = require "Utils/EventHandlers"
+
+local ObservableData = {}
+
+function ObservableData.new(data, name)
+	ObservableData._init(data, data)
+	BindingManager.AddSource(data, name)
+end
+
+function ObservableData.dispose(data)
+	BindingManager.RemoveSource(data)
+end
+
+function ObservableData._init(obj, root, path, templyObjs)
+	if type(obj) ~= 'table' then
+		return obj
+	end
+	
+	local org_mt = getmetatable(obj)
+	if org_mt and obj._isObservableData then
+		return obj
+	end
+	
+	local _obj = templyObjs
+	if _obj == nil then
+		_obj = {}
+		local PropertyChanged = EventHandlers.Event()
+		local NotifyPropertyChanged = function(propertyName)
+			PropertyChanged:Call(root, propertyName)
+		end
+		local NotifyAllPropertiesChanged = function()
+			PropertyChanged:Call(root)
+		end
+		_obj["_isObservableData"] = true
+		_obj["_observableFlag"] = true
+		_obj["PropertyChanged"] = PropertyChanged
+		_obj["NotifyPropertyChanged"] = NotifyPropertyChanged
+		_obj["NotifyAllPropertiesChanged"] = NotifyAllPropertiesChanged
+	end
+	
+	for k, v in pairs(obj) do
+		local key = ObservableData._getPath(path, k)
+		--[[		_obj[key] = (type(v) == 'table') and ObservableData._init(v, root, key, _obj) or v]]
+		_obj[key] = v
+		rawset(obj, k, nil) --clear org obj
+	end
+	
+	setmetatable(obj, {
+		_observableObjs = _obj,
+		_path = path,
+		
+		__index = function(t, k)
+			return _obj[ObservableData._getPath(path, k)]
+		end,
+		__newindex = function(t, k, v)
+			local key = ObservableData._getPath(path, k)
+			local old = _obj[key]
+			_obj[key] = (type(v) == 'table') and ObservableData._init(v, root, key, _obj) or v
+			if old == v or not obj._observableFlag then
+				return
+			end
+			local PropertyChanged = _obj["PropertyChanged"]
+			PropertyChanged:Call(root, ObservableData._getPath(path, k))
+		end,
+	})
+	
+	return obj
+end
+
+function ObservableData._getPath(path, key)
+	if not path or path == '' then
+		return key
+	end
+	if type(key) ~= 'number' and type(key) ~= 'string' then
+		error('not support key type' .. type(key))
+	end
+	return path .. "." .. key
+end
+
+return ObservableData

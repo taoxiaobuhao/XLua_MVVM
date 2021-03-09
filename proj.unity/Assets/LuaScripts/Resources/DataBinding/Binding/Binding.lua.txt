@@ -1,0 +1,227 @@
+------ Change log -------
+-- Version 1.0
+-- ‎Date:2020年8月24日
+-- 扩展自定义Binding需实现：
+-- interface IBinding
+-- bool IsBound()
+-- void Bind(object source)
+-- void Unbind()
+-------------------------
+
+local Binding = {}
+Binding.BindingMode = { OneWay = 0, TwoWay = 1, OneWayToSource = 2, }
+
+--region StaticFunction
+
+function Binding.CreateBinding(sourcePath, target, targetPath, bindMode)
+	local self = {}
+	setmetatable(self, Binding)
+	Binding.__index = Binding
+	
+	if target == nil then
+		BindingManager.Error("target is null")
+		return
+	end
+	
+	if sourcePath == nil or sourcePath == "" then
+		BindingManager.Error("sourcePath is null", target)
+		return
+	end
+	
+	if targetPath == nil or targetPath == "" then
+		BindingManager.Error("targetPath is null", target)
+		return
+	end
+	
+	if bindMode == nil then
+		bindMode = Binding.BindingMode.OneWay
+	end
+	
+	self.mode = bindMode
+	
+	self.sourcePath = sourcePath
+	self.sourcePropertyName = BindingManager.GetPropertyName(sourcePath)
+	
+	self.targetPath = targetPath
+	self.target = target
+	self.targetPropertyName = BindingManager.GetPropertyName(targetPath)
+	
+	return self
+end
+
+--endregion
+
+--region PublicFunction
+
+function Binding:UpdateTarget()
+	if not self:IsBound() then
+		BindingManager.Log("Unbound")
+		return
+	end
+	
+	local value = BindingManager.GetPropertyValue(self.source, self.sourcePath)--self.source[self.sourcePropertyName]
+	
+	--set value to target
+	local func = self.target["set_" .. self.targetPropertyName]
+	if func then
+		func(self.target, value)
+	else
+		self.target[self.targetPropertyName] = value
+	end
+end
+
+function Binding:UpdateSource()
+	if not self:IsBound() then
+		BindingManager.Log("Unbound")
+		return
+	end
+	
+	local value = BindingManager.GetPropertyValue(self.target, self.targetPath)
+	
+	--set value to source
+	local func = self.source["set_" .. self.sourcePropertyName]
+	if func then
+		func(self.source, value)
+	else
+		if self.source._isObservableData then
+			self.source._observableFlag = false
+		end
+		self.source[self.sourcePropertyName] = value
+		if self.source._isObservableData then
+			self.source._observableFlag = true
+		end
+	end
+end
+
+
+--endregion
+
+--region LocalFunction
+
+function Binding:InitValue()
+	local switchFunc = {
+		[Binding.BindingMode.OneWay] = function(self)
+			self:UpdateTarget()
+		end,
+		[Binding.BindingMode.TwoWay] = function(self)
+			self:UpdateTarget()
+		end,
+		[Binding.BindingMode.OneWayToSource] = function(self)
+			self:UpdateSource()
+		end,
+	}
+	local func = switchFunc[self.mode]
+	func(self)
+end
+
+function Binding:ResetValue()
+--[[	if self.mode == Binding.BindingMode.OneWay then
+		self.target[self.targetPropertyName] = nil
+	elseif self.mode == Binding.BindingMode.TwoWay then
+		self.target[self.targetPropertyName] = nil
+		self.source[self.sourcePropertyName] = nil
+	elseif self.mode == Binding.BindingMode.OneWayToSource then
+		self.source[self.sourcePropertyName] = nil
+	else
+		BindingManager.Error("Invalid mode " .. self.mode)
+	end]]
+end
+
+function Binding:OnSourcePropertyChanged(sender, propertyName)
+	if not self:IsBound() then
+		BindingManager.Error("Is not bound ,but source property change called back")
+	end
+	
+	if sender ~= self.source then
+		--BindingManager.Error("Invalid sender {0}:{1}", sender, sender.GetHashCode());
+		return
+	end
+	
+	if propertyName ~= nil and self.sourcePath ~= propertyName then
+		return
+	end
+	
+	self:UpdateTarget()
+end
+
+function Binding:OnTargetPropertyChanged(sender, propertyName)
+	if not self:IsBound() then
+		BindingManager.Error("Is not bound ,but target property change called back")
+	end
+	
+	if sender ~= self.target then
+		--[[Debug.LogWarningFormat("Invalid sender {0}:{1}", sender, sender.GetHashCode());]]
+		return
+	end
+	
+	if propertyName ~= nil and self.targetPath ~= propertyName then
+		return
+	end
+	
+	self:UpdateSource()
+end
+
+--endregion
+
+--region IBinding
+
+function Binding:IsBound()
+	return self.source ~= nil
+end
+
+function Binding:Bind(source)
+	if source == nil then
+		UnityEngine.Debug.LogError("source is null")
+		return
+	end
+	
+	if self:IsBound() then
+		self:Unbind()
+	end
+	
+	--set source
+	self.source = source
+	
+	if self.mode == Binding.BindingMode.OneWay or self.mode == Binding.BindingMode.TwoWay then
+		if self.source.PropertyChanged ~= nil then
+			--add event handler
+			self.sourcePropertyChangedEvent = self.source.PropertyChanged:Register(util.bind(self.OnSourcePropertyChanged, self))
+			print("===> register property event")
+		end
+	end
+	
+	if self.mode == Binding.BindingMode.OneWayToSource or self.mode == Binding.BindingMode.TwoWay then
+		if self.target.PropertyChanged ~= nil then
+			--add event handler
+			self.targetPropertyChangedEvent = self.target.PropertyChanged:Register(util.bind(self.OnTargetPropertyChanged, self))
+		end
+	end
+	
+	self:InitValue()
+end
+
+function Binding:Unbind()
+	if not self:IsBound() then
+		return
+	end
+	
+	if self.mode == Binding.BindingMode.OneWay or self.mode == Binding.BindingMode.TwoWay then
+		if self.sourcePropertyChangedEvent ~= nil then
+			self.sourcePropertyChangedEvent:Remove()
+		end
+	end
+	
+	if self.mode == Binding.BindingMode.OneWayToSource or self.mode == Binding.BindingMode.TwoWay then
+		if self.targetPropertyChangedEvent ~= nil then
+			self.targetPropertyChangedEvent:Remove()
+		end
+	end
+	
+	self:ResetValue()
+	
+	self.source = nil
+end
+
+--endregion
+
+return Binding

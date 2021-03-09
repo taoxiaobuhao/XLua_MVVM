@@ -1,0 +1,24 @@
+if package.loaded["DataBinding/Binder/InputFieldBinder"] ~= nil then
+    return package.loaded["DataBinding/Binder/InputFieldBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+
+local InputFieldBinder = BaseClass("InputFieldBinder")
+
+function InputFieldBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+end
+
+--MonoBehaviour
+function InputFieldBinder:Awake()
+	InputFieldBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])	
+end
+
+function InputFieldBinder:Start()
+end
+
+--InputFieldBinder
+
+package.loaded["DataBinding/Binder/InputFieldBinder"] = InputFieldBinder
+return InputFieldBinder

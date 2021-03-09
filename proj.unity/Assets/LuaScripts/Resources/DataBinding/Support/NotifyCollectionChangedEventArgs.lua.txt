@@ -1,0 +1,9 @@
+local NotifyCollectionChangedEventArgs = {}
+
+NotifyCollectionChangedEventArgs.ChangedAction = { Add = 1, Remove = 2, Replace = 3, Move = 4, Reset = 5 }
+
+function NotifyCollectionChangedEventArgs.new()
+
+end
+
+return NotifyCollectionChangedEventArgs

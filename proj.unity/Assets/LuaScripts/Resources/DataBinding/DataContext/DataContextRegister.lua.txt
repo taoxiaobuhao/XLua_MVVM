@@ -1,0 +1,30 @@
+if package.loaded["DataBinding/DataContext/DataContextRegister"] ~= nil then
+	return package.loaded["DataBinding/DataContext/DataContextRegister"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local DataContext = require "DataBinding/DataContext/DataContext"
+
+local DataContextRegister = BaseClass("DataContextRegister", DataContext)
+local base = DataContextRegister.super
+
+function DataContextRegister.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:ValueParam("requiredSource", AutoParameter.Value_String)
+end
+
+--MonoBehaviour
+function DataContextRegister:Awake()
+	base.Awake(self)
+	DataContextRegister.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+	
+	BindingManager.AddDataContext(self, self.requiredSource)
+end
+
+function DataContextRegister:OnDestroy()
+	BindingManager.RemoveDataContext(self)
+end
+
+--DataContextRegister
+
+package.loaded["DataBinding/DataContext/DataContextRegister"] = DataContextRegister
+return DataContextRegister

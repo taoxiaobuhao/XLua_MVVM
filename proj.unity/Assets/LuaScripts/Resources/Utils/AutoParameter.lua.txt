@@ -1,0 +1,186 @@
+local AutoParameter = {}
+
+AutoParameter.Property_GameObject = 0
+AutoParameter.Property_LuaComponet = 1
+AutoParameter.Property_Texture = 2
+AutoParameter.Property_Material = 3
+AutoParameter.Property_Sprite = 4
+AutoParameter.Property_AudioClip = 5
+AutoParameter.Property_TextAsset = 6
+AutoParameter.Property_Shader = 7
+AutoParameter.Property_Value = 8
+
+AutoParameter.Value_String = 0
+AutoParameter.Value_Number = 1
+AutoParameter.Value_Vector3 = 2
+AutoParameter.Value_Vector2 = 3
+AutoParameter.Value_Color = 4
+AutoParameter.Value_Boolean = 5
+AutoParameter.Value_Vector4 = 6
+
+AutoParameter.In_Game = true
+
+
+function AutoParameter:SetContent(luaClass, go, injection)
+	self.luaClass = luaClass
+	self.gameObject = go
+	self.injection = injection
+
+	self.propertyDic = {}
+	for i = 1, injection.listStrValue.Count do
+		local val = injection.listStrValue[i - 1]
+		if val:find("@property") == 1 then
+			local property, propertyName, propertyType, index, propertyIndex = val:match("([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)")
+			self.propertyDic[propertyName] = {propertyType = tonumber(propertyType), index = tonumber(index), propertyIndex = tonumber(propertyIndex)}
+		end
+	end
+end
+
+function AutoParameter:Label(lableName)
+
+end
+
+function AutoParameter:ComponentParam(parameterName, componentName)
+	local component = self:GetComponent(parameterName, componentName)
+	self.luaClass[parameterName] = component
+	return self.luaClass[parameterName] ~= nil
+end
+
+function AutoParameter:ReferenceParam(parameterName, propertyType)
+	local refernce = self:GetRefernce(parameterName, propertyType)
+	self.luaClass[parameterName] = refernce
+	return self.luaClass[parameterName]  ~= nil
+end
+
+function AutoParameter:ValueParam(parameterName, valueType, defaultValue)
+	local value = self:GetValue(parameterName, valueType, defaultValue)
+	self.luaClass[parameterName] = value
+	if valueType == AutoParameter.Value_Number or valueType == AutoParameter.Value_Boolean then
+		return value
+	end
+end
+
+function AutoParameter:EnumParam(parameterName, enumString, defaultValue)
+	local value = self:GetValue(parameterName, AutoParameter.Value_String, defaultValue)
+	self.luaClass[parameterName] = value
+	return value
+end
+
+function AutoParameter:ComponentParamList(parameterName, componentName)
+	local list = {}
+	local listSize = self:GetValue(parameterName.."[-1]", AutoParameter.Value_Number)
+	if listSize then
+		for index = 1 , listSize do
+			list[index] = self:GetComponent(string.format("%s[%d]", parameterName, index - 1), componentName)
+		end
+	end
+	self.luaClass[parameterName] = list
+end
+
+function AutoParameter:ReferenceParamList(parameterName, propertyType)
+	local list = {}
+	local listSize = self:GetValue(parameterName.."[-1]", AutoParameter.Value_Number)
+	if listSize then
+		for index = 1 , listSize do
+			list[index] = self:GetRefernce(string.format("%s[%d]", parameterName, index - 1), propertyType)
+		end
+	end
+	self.luaClass[parameterName] = list
+end
+
+function AutoParameter:ValueParamList(parameterName, valueType)
+	local list = {}
+	local listSize = self:GetValue(parameterName.."[-1]", AutoParameter.Value_Number)
+	if listSize then
+		for index = 1 , listSize do
+			list[index] = self:GetValue(string.format("%s[%d]", parameterName, index - 1), valueType)
+		end
+	end
+	self.luaClass[parameterName] = list
+end
+
+function AutoParameter:GetComponent(propertyName, componentName)
+	if self.propertyDic[propertyName] then
+		local propertyInfo = self.propertyDic[propertyName]
+		if propertyInfo.propertyType == AutoParameter.Property_LuaComponet and propertyInfo.index < self.injection.listObjValue.Count then
+			if self.injection.listObjValue[propertyInfo.index] then
+				local obj = self.injection.listObjValue[propertyInfo.index]
+				return obj
+			end
+		end
+	end
+	return nil
+end
+
+function AutoParameter:GetRefernce(propertyName, propertyType)
+	if self.propertyDic[propertyName] then
+		local propertyInfo = self.propertyDic[propertyName]
+		if propertyInfo.propertyType == propertyType then
+			if propertyType ~= AutoParameter.Property_Value and propertyInfo.index < self.injection.listObjValue.Count then
+				return self.injection.listObjValue[propertyInfo.index]
+			end
+		end
+	end	
+	return nil
+end
+
+function AutoParameter:GetValue(propertyName, valueType, defaultValue)
+	local strValue = defaultValue
+	if self.propertyDic[propertyName] then
+		local propertyInfo = self.propertyDic[propertyName]
+		if propertyInfo.propertyType == AutoParameter.Property_Value and propertyInfo.index < self.injection.listStrValue.Count then
+			strValue = self.injection.listStrValue[propertyInfo.index]
+		end
+	end
+	if strValue then
+		if valueType == AutoParameter.Value_String then
+			return strValue
+		elseif valueType == AutoParameter.Value_Number then
+			return self.ParseNumber(strValue)
+		elseif valueType == AutoParameter.Value_Vector3 then
+			return self.ParseVector3(strValue)
+		elseif valueType == AutoParameter.Value_Vector2 then
+			return self.ParseVector2(strValue)
+		elseif valueType == AutoParameter.Value_Vector4 then
+			return self.ParseVector4(strValue)	
+		elseif valueType == AutoParameter.Value_Color then
+			return self.ParseColor(strValue)
+		elseif valueType == AutoParameter.Value_Boolean then
+			return self.ParseBoolean(strValue)
+		end
+	end
+	return nil
+end
+
+function AutoParameter.ParseNumber(str)
+	return tonumber(str)
+end
+
+function AutoParameter.ParseColor(str)
+	local r, g, b, a = string.match(str, "([^,]+),([^,]+),([^,]+),([^,]+)")
+	return UnityEngine.Color(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+end
+
+function AutoParameter.ParseBoolean(str)
+	if str:len() > 0 then
+		return true
+	end
+	return false
+end
+
+function AutoParameter.ParseVector2(str)
+	local x, y = string.match(str, "([^,]+),([^,]+)")
+	return Vector2(tonumber(x), tonumber(y))
+end
+
+function AutoParameter.ParseVector3(str)
+	local x, y, z = string.match(str, "([^,]+),([^,]+),([^,]+)")
+	return Vector3(tonumber(x), tonumber(y), tonumber(z))
+end
+
+function AutoParameter.ParseVector4(str)
+	local x, y, z, w = string.match(str, "([^,]+),([^,]+),([^,]+),([^,]+)")
+	return CS.UnityEngine.Vector4(tonumber(x), tonumber(y), tonumber(z), tonumber(w))
+end
+
+return AutoParameter

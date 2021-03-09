@@ -1,0 +1,410 @@
+local GameUtil = {}
+
+---获取指定脚本的LuaBehaviour.当一个GameObject挂了多个LuaBehaviour时使用
+---@param go UnityEngine.GameObject
+---@param luaTableName string
+---@return LuaBehaviour
+function GameUtil.GetLuaComponent(go, luaTableName)
+	local behaviours = go:GetComponents(typeof(CS.LuaBehaviour))
+	
+	local behaviour = nil ---@type LuaBehaviour
+	for i = 0, behaviours.Length - 1 do
+		behaviour = behaviours[i]
+		if string.contains(behaviour.luaScript.name, luaTableName) then
+			return behaviour
+		end
+	end
+	return nil
+end
+
+---获取指定脚本的LuaBehaviours.当一个GameObject挂了多个LuaBehaviour时使用
+---@param go UnityEngine.GameObject
+---@param luaTableName string
+---@return LuaBehaviour
+function GameUtil.GetLuaComponents(go, luaTableName)
+	local behaviours = go:GetComponents(typeof(CS.LuaBehaviour))
+	
+	local components = {}
+	local behaviour = nil ---@type LuaBehaviour
+	for i = 0, behaviours.Length - 1 do
+		behaviour = behaviours[i]
+		if string.contains(behaviour.luaScript.name, luaTableName) then
+			table.insert(components, behaviour.returnScriptEnv)
+		end
+	end
+	return components
+end
+
+---AddLuaComponent
+---@param go UnityEngine.GameObject
+---@param luaScriptPath string
+---@return CS.LuaBehaviour
+function GameUtil.AddLuaComponent(go, luaScriptPath)
+	local luaBehaviour = go:AddComponent(typeof(CS.LuaBehaviour))  ---@type LuaBehaviour
+	luaBehaviour:SetScript(luaScriptPath .. ".lua.txt")
+	return luaBehaviour
+end
+
+---FindGameObjectLuaComponentInChildren
+---查找子节点下luaScriptName的GameObject
+---@param go UnityEngine.GameObject
+---@param luaScriptName string
+---@return LuaBehaviour
+function GameUtil.FindGameObjectLuaComponentInChildren(go, luaScriptName)
+	if IsNull(go) then
+		return nil
+	end
+	
+	if go.transform.childCount <= 0 then
+		return nil
+	end
+	
+	for i = 0, go.transform.childCount - 1 do
+		local child = go.transform:GetChild(i)
+		if GameUtil.GetLuaComponent(child, luaScriptName) then
+			return GameUtil.GetLuaComponent(child, luaScriptName)
+		else
+			return GameUtil.FindGameObjectLuaComponentInChildren(child, luaScriptName)
+		end
+	end
+end
+
+---FindGameObjectLuaComponentInChildren
+---查找子节点下所有luaScriptName的GameObject,只查找一层子节点
+---@param go UnityEngine.GameObject
+---@param luaScriptName string
+---@return LuaBehaviour
+function GameUtil.FindAllGameObjectLuaComponentInChildren(go, luaScriptName)
+	if IsNull(go) then
+		return nil
+	end
+	local luaScripts = {}
+	for i = 0, go.transform.childCount - 1 do
+		local child = go.transform:GetChild(i)
+		if GameUtil.GetLuaComponent(child, luaScriptName) then
+			table.insert(luaScripts, GameUtil.GetLuaComponent(child, luaScriptName))
+		end
+	end
+	return luaScripts
+end
+
+---查找父节点下的GameObject
+---@return UnityEngine.GameObject
+function GameUtil.FindGameObject(parent, name)
+	if type(parent) == "string" then
+		local parentGo = GameObject.Find(parent)
+		return CS.WJUtils.FindGameObjectByNameInAllChildren(parentGo, name)
+	elseif type(parent) == "userdata" then
+		return CS.WJUtils.FindGameObjectByNameInAllChildren(parent, name)
+	end
+end
+
+---查找父节点包含containName的GameObject
+---@return UnityEngine.GameObject
+function GameUtil.FindGameObjectInAllParentByContainName(go, containName)
+	if IsNull(go) then
+		return nil
+	end
+	local par = go.transform.parent
+	if IsNull(par) then
+		return nil
+	else
+		if string.contains(par.name, containName) then
+			return par.gameObject
+		else
+			return GameUtil.FindGameObjectInAllParentByContainName(par.gameObject, containName)
+		end
+	end
+end
+
+
+--region Save Texture
+---SaveTexture
+---@param _texture UnityEngine.Texture2D
+---@param toFileNameFullPath string
+---@return boolean
+function GameUtil.SaveTexture(_texture, toFileNameFullPath)
+	if _texture then
+		CS.System.IO.File.WriteAllBytes(toFileNameFullPath, UnityEngine.ImageConversion.EncodeToPNG(_texture))
+		return true
+	end
+	return false
+end
+
+---GetTexture
+---@param toFileNameFullPath string
+---@return UnityEngine.Texture2D
+function GameUtil.GetTexture(toFileNameFullPath)
+	if CS.System.IO.File.Exists(toFileNameFullPath) then
+		local data = CS.System.IO.File.ReadAllBytes(toFileNameFullPath)
+		local texture = CS.UnityEngine.Texture2D(2, 2, CS.UnityEngine.TextureFormat.ARGB32, false)
+		UnityEngine.ImageConversion.LoadImage(texture, data)
+		return texture
+	end
+	return nil
+end
+
+---RemoveTexture
+---@param toFileNameFullPath string
+---@return boolean
+function GameUtil.RemoveTexture(toFileNameFullPath)
+	if CS.System.IO.File.Exists(toFileNameFullPath) then
+		CS.System.IO.Delete(toFileNameFullPath)
+		return true
+	end
+	return false
+end
+
+---GetSprite
+---@param name string   图片名字
+---@return UnityEngine.Sprite
+function GameUtil.GetSprite(name)
+	local texture = GameUtil.GetTextureFormPersistent(name)
+	if IsNull(texture) then
+		return nil
+	end
+	local spr = CS.UnityEngine.Sprite.Create(texture, CS.UnityEngine.Rect(0, 0, texture.width, texture.height), Vector2(0.5, 0.5))
+	return spr
+end
+
+---SaveTextureToPersistent
+---@param texture UnityEngine.Texture2D   图片
+---@param name string 名字
+function GameUtil.SaveTextureToPersistent(texture, name)
+	return GameUtil.SaveTexture(texture, CS.UnityEngine.Application.persistentDataPath .. "/" .. name .. ".png")
+end
+
+---GetTextureFormPersistent
+---@param name string 图片名字
+function GameUtil.GetTextureFormPersistent(name)
+	return GameUtil.GetTexture(CS.UnityEngine.Application.persistentDataPath .. "/" .. name .. ".png")
+end
+
+---RemoveTextureToPersistent
+---@param name string 图片名字
+function GameUtil.RemoveTextureToPersistent(name)
+	return GameUtil.RemoveTexture(CS.UnityEngine.Application.persistentDataPath .. "/" .. name .. ".png")
+end
+
+---GetTextureToPersistentPath
+---@param name string 图片名字
+function GameUtil.GetTextureToPersistentPath(name)
+	return CS.UnityEngine.Application.persistentDataPath .. "/" .. name .. ".png"
+end
+
+
+--endregion
+
+
+---InstantiatePrefabInParent
+---@param prefabFullPath string
+---@param parent UnityEngine.GameObject
+---@return UnityEngine.GameObject
+function GameUtil.InstantiatePrefabInParent(prefabFullPath, parent)
+	prefabFullPath = prefabFullPath .. ".prefab"
+	return GameObject.Instantiate(ResourcesManager.LoadByRelativePath(prefabFullPath), parent.transform)
+end
+
+---InstantiatePrefabInitialize
+---@param prefabFullPath string
+---@param pos UnityEngine.Vector3
+---@param rotation UnityEngine.Quaternion
+---@param parent UnityEngine.GameObject
+---@return UnityEngine.GameObject
+function GameUtil.InstantiatePrefabInitialize(prefabFullPath, pos, rotation, parent)
+	return GameObject.Instantiate(ResourcesManager.LoadByRelativePath(prefabFullPath .. ".prefab"), pos, rotation, parent.transform)
+end
+--endregion
+
+---PlaySkeletonGraphic
+---@param skeleton "SkeletonGraphic"
+---@param aniName string
+---@param isLoop boolean
+---@param callback function
+function GameUtil.PlaySkeletonGraphic(skeleton, aniName, isLoop, callback)
+	local skeleton = skeleton.gameObject:GetComponent("SkeletonGraphic")
+	if skeleton then
+		local animationObject = skeleton.skeletonDataAsset:GetSkeletonData(false):FindAnimation(aniName)
+		if animationObject then
+			local trackEntry = skeleton.AnimationState:SetAnimation(0, animationObject, isLoop)
+			if callback and trackEntry then
+				GameUtil.trackEntryHandler = function(_trackEntry)
+					trackEntry["Complete"](trackEntry, '-', GameUtil.trackEntryHandler)
+					callback()
+				end
+				trackEntry["Complete"](trackEntry, '+', GameUtil.trackEntryHandler)
+				return
+			end
+		end
+	end
+	if callback then
+		DOVirtual.DelayedCall(0.2, callback)
+	end
+end
+
+---ShowParticles 播放粒子,同时可以播放对应的音效
+---@param prefabFullPath string
+---@param parent UnityEngine.GameObject
+---@param isSoundEffect boolean
+---@return UnityEngine.ParticleSystem
+function GameUtil.ShowParticles(prefabFullPath, parent, isSoundEffect, duration)
+	isSoundEffect = isSoundEffect
+	duration = duration or 0
+	
+	LogMgr.Log("播放粒子   粒子加载路径   " .. prefabFullPath)
+	---@type UnityEngine.GameObject
+	local go
+	if AppSetting.IS_MAIN_APP then
+		go = ResourcesManager.LoadMainAppResource(typeof(UnityEngine.GameObject), prefabFullPath)
+	else
+		go = ResourcesManager.LoadByRelativePath(typeof(UnityEngine.GameObject), prefabFullPath)
+	end
+	--go = ResourcesManager.LoadByRelativePath(typeof(UnityEngine.GameObject), prefabFullPath)
+	if IsNull(go) then
+		UnityEngine.Debug.LogError("检查该粒子是否存在      " .. prefabFullPath)
+		return
+	end
+	go = GameObject.Instantiate(go)
+	---@type UnityEngine.ParticleSystem
+	local particle = go:GetComponent(typeof(UnityEngine.ParticleSystem))
+	if IsNull(particle) then
+		particle = go:AddComponent(typeof(UnityEngine.ParticleSystem))
+		particle:GetComponent(typeof(UnityEngine.Renderer)).enabled = false
+	end
+	CS.WJUtils.AddChild(parent, go, false)
+	--[[	particle:Play()]]
+	GameUtil.PlaySoundEffect(particle)
+	if isSoundEffect then
+		-- 匹配 / 和 .prefab 之间的的除/之外的任意字符
+		local result = string.match(prefabFullPath, "/([^//]+)%.prefab")
+		if string.len(result) > 0 then
+			SoundUtil:PlaySoundEffect("Effect:" .. result)
+		end
+	end
+	
+	if duration > 0 then
+		UnityEngine.GameObject.Destroy(go, duration)
+	end
+	return particle
+end
+
+function GameUtil.ShowParticles3D(prefabFullPath, positionObj, isSoundEffect, duration)
+	local particle = GameUtil.ShowParticles(prefabFullPath, nil, isSoundEffect, duration)
+	if particle then
+		particle.transform.position = positionObj.transform.position
+		particle.transform.rotation = positionObj.transform.rotation
+	end
+	return particle
+end
+
+function GameUtil.PlaySoundEffect(particle)
+	local soundParticle = GameUtil.GetLuaComponent(particle.gameObject, "AutoPlaySoundParticle")
+	if soundParticle then
+		soundParticle.returnScriptEnv:PlaySoundEffect()
+	end
+	particle:Play()
+end
+
+function GameUtil.SmoothPlayParticle(particle)
+	particle.gameObject:SetActive(true)
+	particle:Clear()
+	--[[	particle:Play()]]
+	GameUtil.PlaySoundEffect(particle)
+	DOTween.Kill(particle)
+end
+
+function GameUtil.SmoothStopParticle(particle)
+	if not particle.gameObject.activeSelf then
+		return
+	end
+	DOTween.Kill(particle)
+	particle:Stop()
+	DOVirtual  .DelayedCall(1, function()
+		particle.gameObject:SetActive(false)
+	end, false):SetId(particle)
+end
+
+function GameUtil.SetSceneTouchEnable(enable)
+	local eventTempTable = GameObject.FindObjectsOfType(typeof(UnityEngine.EventSystems.EventSystem))
+	
+	for i = 0, eventTempTable.Length - 1 do
+		eventTempTable[i].gameObject:GetComponent(typeof(UnityEngine.EventSystems.EventSystem)).enabled = enable
+	end
+end
+
+function GameUtil.InvokeRepeating(funcName, callback, delay, interval, _isFirstRun)
+	CS         .DG.Tweening.DOVirtual.DelayedCall(delay, function()
+		if callback then
+			callback()
+		end
+		CS.DG.Tweening.DOVirtual.DelayedCall(interval, callback, false):SetId(funcName):SetLoops(-1)
+	end, false):SetId(funcName)
+end
+
+function GameUtil.CancelInvoke(funcName)
+	DOTween.Kill(funcName)
+end
+
+function GameUtil.SetParticleColor(particle, color)
+	local particles = particle.gameObject:GetComponentsInChildren(typeof(UnityEngine.ParticleSystem))
+	for i = 1, particles.Length - 1 do
+		local particleItem = particles[i]
+		local particleColor = particleItem.main.startColor
+		if particleColor.color~= nil then
+			particleColor.color = color
+		end
+		particleItem.main.startColor = particleColor
+	end
+end
+
+function GameUtil.HexToColor(hexValue)
+	if not hexValue or string.len(hexValue) < 8 then
+		return CS.UnityEngine.Color.white
+	end
+	
+	local r = tonumber(string.sub(hexValue, 1, 2), 16) / 255
+	local g = tonumber(string.sub(hexValue, 3, 4), 16) / 255
+	local b = tonumber(string.sub(hexValue, 5, 6), 16) / 255
+	local a = tonumber(string.sub(hexValue, 7, 8), 16) / 255
+	
+	return CS.UnityEngine.Color(r, g, b, a)
+end
+
+function GameUtil.GetLuaComponentBySuperName (go, superLuaTableName)
+	local behaviours = go:GetComponents(typeof(CS.LuaBehaviour))
+	local behaviour = nil
+	for i = 0, behaviours.Length - 1 do
+		behaviour = behaviours[i]
+		if string.contains(behaviour.luaScript.name, superLuaTableName) then
+			return behaviour
+		end
+		local super
+		if behaviour.returnScriptEnv ~= nil then
+			super = behaviour.returnScriptEnv._class_type.super
+		end
+		if super ~= nil and string.contains(super.__cname, superLuaTableName) then
+			return behaviour
+		end
+	end
+	return nil
+end
+
+function GameUtil.DepthClone(object)
+	local lookup_table = {}
+	local function _copy(object)
+		if type(object) ~= "table" then
+			return object
+		elseif lookup_table[object] then
+			return lookup_table[object]
+		end
+		local new_table = {}
+		lookup_table[object] = new_table
+		for key, value in pairs(object) do
+			new_table[_copy(key)] = _copy(value)
+		end
+		return setmetatable(new_table, getmetatable(object))
+	end
+	return _copy(object)
+end
+
+return GameUtil

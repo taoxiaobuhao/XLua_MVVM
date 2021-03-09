@@ -1,0 +1,41 @@
+if package.loaded["DataBinding/Binder/ImageBinder"] ~= nil then
+	return package.loaded["DataBinding/Binder/ImageBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+local Binding = require "DataBinding/Binding/Binding"
+
+local ImageBinder = BaseClass("ImageBinder")
+
+function ImageBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:ValueParam("path", AutoParameter.Value_String)
+end
+
+--MonoBehaviour
+function ImageBinder:Awake()
+	ImageBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function ImageBinder:Start()
+	self.target = self.this:GetComponent(typeof(UnityEngine.UI.Image))
+	if self.target == nil then
+		UnityEngine.Debug.LogError("Require Button Image", self.this.gameObject)
+	end
+	
+	self.binding = Binding.CreateBinding(self.path, self, "Sprite")
+	self.dataContext = BindingManager.AddBinding(self.binding, self.this.transform)
+end
+
+function ImageBinder:OnDestroy()
+	BindingManager.RemoveBinding(self.binding, self.dataContext)
+end
+
+--ImageBinder
+
+function ImageBinder:set_Sprite(value)
+	self.target.sprite = CS.AssetBundleBrowser.AssetBundlePacker.ResourcesManager.LoadByRelativePath(typeof(CS.UnityEngine.Sprite), value)
+end
+
+package.loaded["DataBinding/Binder/ImageBinder"] = ImageBinder
+return ImageBinder

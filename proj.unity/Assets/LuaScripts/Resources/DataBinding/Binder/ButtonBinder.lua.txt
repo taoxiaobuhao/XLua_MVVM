@@ -1,0 +1,51 @@
+if package.loaded["DataBinding/Binder/ButtonBinder"] ~= nil then
+	return package.loaded["DataBinding/Binder/ButtonBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+local Binding = require "DataBinding/Binding/Binding"
+
+local ButtonBinder = BaseClass("ButtonBinder")
+
+function ButtonBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:ValueParam("path", AutoParameter.Value_String)
+end
+
+--MonoBehaviour
+function ButtonBinder:Awake()
+	ButtonBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function ButtonBinder:Start()
+	self.button = self.this:GetComponent(typeof(UnityEngine.UI.Button))
+	if self.button == nil then
+		UnityEngine.Debug.LogError("Require Button Component", self.this.gameObject)
+	end
+	
+	--create binding
+	self.binding = Binding.CreateBinding(self.path, self, "Command")
+	self.dataContext = BindingManager.AddBinding(self.binding, self.this.transform)
+	self.eventHandler = EventHandlers.UnityEventHandler(self.button.onClick, util.bind(self.OnButtonClick, self))
+end
+
+function ButtonBinder:OnDestroy()
+	self.eventHandler:Remove()
+	
+	BindingManager.RemoveBinding(self.binding, self.dataContext)
+end
+
+function ButtonBinder:set_Command(value)
+	self.callBack = value
+end
+
+function ButtonBinder:OnButtonClick()
+	if self.callBack ~= nil  then
+		self.callBack()
+	end
+end
+
+--ButtonBinder
+
+package.loaded["DataBinding/Binder/ButtonBinder"] = ButtonBinder
+return ButtonBinder

@@ -1,0 +1,109 @@
+local EventHandlers = {}
+
+function EventHandlers.CSharpEventHandler(obj, event, handler)
+	obj[event](obj, '+', handler)
+	
+	local eventHandler = {}
+	eventHandler.obj = obj
+	eventHandler.event = event
+	eventHandler.handler = handler
+	eventHandler.Remove = function (self)
+		if self.handler then
+			self.obj[self.event](self.obj, '-', self.handler)
+			self.handler = nil
+		end
+	end
+	return eventHandler
+end
+
+function EventHandlers.CSharpStaticEventHandler(obj, event, handler)
+	obj[event]('+', handler)
+	
+	local eventHandler = {}
+	eventHandler.obj = obj
+	eventHandler.event = event
+	eventHandler.handler = handler
+	eventHandler.Remove = function (self)
+		if self.handler then
+			self.obj[self.event]('-', self.handler)
+			self.handler = nil
+		end
+	end
+	return eventHandler
+end
+
+function EventHandlers.UnityEventHandler(event, handler)
+	event:AddListener(handler)
+	
+	local eventHandler = {}
+	eventHandler.event = event
+	eventHandler.handler = handler
+	eventHandler.Remove = function (self)
+		if self.handler then
+			self.event:RemoveListener(self.handler)
+			self.handler = nil
+		end
+	end
+	return eventHandler
+end
+
+function EventHandlers.MessagerHander(messager, event, handler)
+	messager:AddListener(event, handler)
+	
+	local eventHandler = {}
+	eventHandler.messager = messager
+	eventHandler.event = event
+	eventHandler.handler = handler
+	eventHandler.Remove = function (self)
+		if self.handler then
+			self.messager:RemoveListener(event, self.handler)
+			self.handler = nil
+		end
+	end
+	return eventHandler	
+end
+
+function EventHandlers.MessageDispatcherHander(event, handler)
+	CS.com.ootii.Messages.MessageDispatcher.AddListener(event, handler)
+	
+	local eventHandler = {}
+	eventHandler.event = event
+	eventHandler.handler = handler
+	eventHandler.Remove = function (self)
+		if self.handler then
+			CS.com.ootii.Messages.MessageDispatcher.RemoveListener(event, self.handler)
+			self.handler = nil
+		end
+	end
+	return eventHandler	
+end
+
+function EventHandlers.Event()
+	local newEvent = {}
+	newEvent.handlers = {}
+	newEvent.index = 1
+	newEvent.Call = function (self, ...)
+		for key, val in pairs(self.handlers) do
+			if val and val.func then
+				val.func(...)
+			end
+		end
+	end
+	newEvent.Register = function (self, func)
+		local newHandler = {}
+		newHandler.index = self.index
+		self.index = self.index + 1
+		newHandler.func = func
+		newHandler.Remove = function ()
+			self.handlers[newHandler.index] = nil
+		end
+		self.handlers[newHandler.index] = newHandler
+		return newHandler		
+	end
+	newEvent.RemoveAllHandler = function (self)
+		self.handlers = {}
+	end
+	return newEvent
+end
+
+return EventHandlers

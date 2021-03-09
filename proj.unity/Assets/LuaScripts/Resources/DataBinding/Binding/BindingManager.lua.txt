@@ -1,0 +1,238 @@
+if package.loaded["DataBinding/Binding/BindingManager"] ~= nil then
+	return package.loaded["DataBinding/Binding/BindingManager"]
+end
+
+local BindingManager = {}
+
+BindingManager.PathSeperatorChar = '.'
+
+BindingManager.dataContextDictionary = {} --Dictionary<string, List<IDataContext>>
+BindingManager.dataContextNameDictionary = {}  --Dictionary<IDataContext, string>
+BindingManager.sourceDictionary = {}      --Dictionary<string, object>
+BindingManager.sourceNameDictionary = {}  --Dictionary<object, string>
+
+--region PublicFunction
+
+function BindingManager.AddSource(source, name)
+	BindingManager.Log("AddSource, sourceName= " .. tostring(name) .. " , source= " .. tostring(source))
+	
+	if BindingManager.sourceDictionary[name] ~= nil then
+		BindingManager.Log("Source " .. tostring(name) .. " is already added.")
+		return
+	end
+	
+	BindingManager.sourceDictionary[name] = source
+	BindingManager.sourceNameDictionary[source] = name
+	
+	BindingManager.BindSource(name)
+end
+
+function BindingManager.RemoveSource(source)
+	if source == nil then
+		BindingManager.ThrowNull("source is null ", source)
+		return
+	end
+	
+	BindingManager.Log("RemoveSource, source " .. tostring(source))
+	
+	local name = BindingManager.sourceNameDictionary[source]
+	if name == nil then
+		return
+	end
+	
+	BindingManager.sourceDictionary[name] = nil
+	BindingManager.sourceNameDictionary[source] = nil
+	
+	BindingManager.UnbindSource(name)
+end
+
+function BindingManager.AddDataContext(dataContext, sourceName)
+	if dataContext == nil then
+		BindingManager.ThrowNull("dataContext is null")
+	end
+	
+	if sourceName == nil then
+		BindingManager.ThrowNull("sourceName is null")
+	end
+	
+	BindingManager.Log("AddDataContext: " .. tostring(dataContext) .. ", require source: " .. tostring(sourceName))
+	
+	if BindingManager.dataContextNameDictionary[dataContext] ~= nil then
+		BindingManager.Error("DataContext " .. tostring(dataContext) .. " is already registered.")
+		return
+	end
+	
+	if BindingManager.dataContextDictionary[sourceName] == nil then
+		BindingManager.dataContextDictionary[sourceName] = {}
+	end
+	
+	table.insert(BindingManager.dataContextDictionary[sourceName], dataContext)
+	BindingManager.dataContextNameDictionary[dataContext] = sourceName
+	
+	if BindingManager.sourceDictionary[sourceName] ~= nil then
+		dataContext.BindSource(BindingManager.sourceDictionary[sourceName])
+	end
+end
+
+function BindingManager.RemoveDataContext(dataContext)
+	if dataContext == nil then
+		return
+	end
+	
+	BindingManager.Log("RemoveDataContext: " .. tostring(dataContext))
+	
+	local sourceName = BindingManager.dataContextNameDictionary[dataContext]
+	if sourceName ~= nil then
+		BindingManager.Error("DataContext " .. tostring(dataContext) .. " is unregistered.");
+		return
+	end
+	
+	if BindingManager.dataContextDictionary[sourceName] == nil then
+		BindingManager.Error("DataContext " .. tostring(dataContext) .. " is unregistered.")
+		return
+	end
+	
+	local newList = {}
+	for i, v in ipairs(BindingManager.dataContextDictionary[sourceName]) do
+		table.insert(newList, v)
+	end
+	BindingManager.dataContextDictionary[sourceName] = newList
+	
+	BindingManager.dataContextNameDictionary[dataContext] = nil
+	
+	if #BindingManager.dataContextDictionary[sourceName] == 0 then
+		BindingManager.dataContextDictionary[sourceName] = nil
+	end
+	
+	dataContext.UnbindSource()
+end
+
+function BindingManager.Log(value, obj)
+	LogMgr.Log("<color=orange>BindUtil </color> " .. value)
+	--[[	LogMgr.Log("<color=orange>BindUtil </color> " .. value)]]
+end
+
+function BindingManager.Error(value, obj)
+	LogMgr.Log("<color=red>BindUtil </color> " .. value)
+	--[[	LogMgr.Log("<color=red>BindUtil </color> " .. value)]]
+end
+
+function BindingManager.ThrowNull(value, obj)
+	return
+	--[[	UnityEngine.LogError("<color=red>BindUtil </color> " .. value, obj)]]
+	--[[	LogMgr.Log("<color=red>BindUtil </color> " .. value)]]
+end
+
+function BindingManager.AddBinding(binding, transform)
+	local dataContext = BindingManager.FindDataContext(transform)
+	if dataContext == nil then
+		UnityEngine.LogError("Failed to find DataContext", transform)
+	else
+		-- add to data context
+		dataContext.returnScriptEnv:AddBinding(binding)
+	end
+	return dataContext.returnScriptEnv
+end
+
+function BindingManager.AddBindings(bindings, transform)
+	local dataContext = BindingManager.FindDataContext(transform)
+	if dataContext == nil then
+		UnityEngine.LogError("Failed to find DataContext", transform)
+	else
+		dataContext = dataContext.returnScriptEnv
+		-- add to data context
+		dataContext:AddBindings(bindings)
+	end
+	return dataContext
+end
+
+function BindingManager.RemoveBinding(binding, dataContext)
+	if dataContext ~= nil then
+		dataContext:RemoveBinding(binding);
+	end
+end
+
+function BindingManager.RemoveBindings(bindings, dataContext)
+	if dataContext ~= nil then
+		dataContext:RemoveBindings(bindings);
+	end
+end
+
+--[[function BindingManager.GetBindingObject(obj, path)
+	if obj == nil then
+		BindingManager.ThrowNull("obj is null")
+	end
+	if IsNull(path) then
+		BindingManager.Error("path is null")
+	end
+	local sepKeys = string.split(path, ".")
+	if #sepKeys == 1 then
+		return obj
+	end
+	return obj[sepKeys[1]]--[[
+end]]
+
+function BindingManager.GetPropertyName(path)
+	if IsNull(path) then
+		BindingManager.Error("path is null")
+	end
+	local sepKeys = string.split(path, ".")
+	return sepKeys[#sepKeys]
+end
+
+function BindingManager.GetPropertyValue(obj, path)
+	local sepPath = string.split(path, ".")
+	local lastObj = obj
+	local index = 1
+	while (lastObj ~= nil and index <= #sepPath) do
+		lastObj = lastObj[sepPath[index]]
+		index = index + 1
+	end
+	return lastObj
+end
+
+function BindingManager.FindDataContext(current)
+	local result = nil
+	while (current ~= nil) do
+		result = GameUtil.GetLuaComponentBySuperName(current, "DataContext")
+		if result ~= nil then
+			break
+		end
+		current = current.parent
+	end
+	return result
+end
+
+--endregion
+
+--region LocalFunction
+function BindingManager.BindSource(sourceName)
+	local list = BindingManager.dataContextDictionary[sourceName]
+	if list == nil then
+		return
+	end
+	
+	local source = BindingManager.sourceDictionary[sourceName]
+	if source == nil then
+		return
+	end
+	
+	for i, v in ipairs(list) do
+		v:BindSource(source)
+	end
+end
+
+function BindingManager.UnbindSource(sourceName)
+	local list = BindingManager.dataContextDictionary[sourceName]
+	if list == nil then
+		return
+	end
+	
+	for i, v in ipairs(list) do
+		v:UnbindSource()
+	end
+end
+--endregion
+
+package.loaded["DataBinding/Binding/BindingManager"] = BindingManager
+return BindingManager

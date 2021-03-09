@@ -1,0 +1,119 @@
+if package.loaded["DataBinding/ExtraBinder/SideBarBinder"] ~= nil then
+	return package.loaded["DataBinding/ExtraBinder/SideBarBinder"]
+end
+local AutoParameter = require "Utils/AutoParameter"
+local EventHandlers = require "Utils/EventHandlers"
+local Binding = require "DataBinding/Binding/Binding"
+
+local SideBarBinder = BaseClass("SideBarBinder")
+
+function SideBarBinder.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+	AutoParameter:Label("绑定string类型对象path,显示状态.Show|Hide|HideAll 三种状态")
+	AutoParameter:ValueParam("statePath", AutoParameter.Value_String)
+	
+	--[[	AutoParameter:ValueParam("slideInAudioKey", AutoParameter.Value_String)
+		AutoParameter:ValueParam("slideOutAudioKey", AutoParameter.Value_String)]]
+	AutoParameter:EnumParam("slideType", "Axis_X|Axis_Y", "Axis_X")
+	AutoParameter:ValueParam("slideDuration", AutoParameter.Value_Number, 0.5)
+	AutoParameter:ValueParam("slideOffset", AutoParameter.Value_Number, 100)
+	AutoParameter:ValueParam("slideAllOffset", AutoParameter.Value_Number, 120)
+	AutoParameter:ComponentParam("slideButton", "UnityEngine.UI.Button")
+	AutoParameter:ComponentParam("slideImage", "UnityEngine.UI.Image")
+	AutoParameter:ReferenceParamList("slideSprites", AutoParameter.Property_Sprite)
+	AutoParameter:ReferenceParam("containerBlocker", AutoParameter.Property_GameObject)
+end
+
+--MonoBehaviour
+function SideBarBinder:Awake()
+	SideBarBinder.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function SideBarBinder:Start()
+	self.originPosition = self.this.transform.anchoredPosition
+	self:CreateBinding()
+end
+
+function SideBarBinder:OnDestroy()
+	BindingManager.RemoveBinding(self.binding, self.dataContext)
+end
+
+--SideBarBinder
+
+function SideBarBinder:CreateBinding()
+	self.binding = Binding.CreateBinding(self.statePath, self, "SideState", Binding.BindingMode.TwoWay)
+	self.dataContext = BindingManager.AddBinding(self.binding, self.this.transform)
+end
+
+function SideBarBinder:set_SideState(value)
+	if self.SideState == value then
+		return
+	end
+	self.SideState = value
+	if value == "Show" then
+		self:SlideIn()
+	elseif value == "Hide" then
+		self:SlideOut()
+	else
+		self:SlideOut(true)
+	end
+end
+
+function SideBarBinder:SlideIn()
+	if not IsNull(self.slideButton) and self.slideButtonHandler == nil then
+		self.slideButtonHandler = EventHandlers.UnityEventHandler(self.slideButton.onClick, util.bind(self.OnSlideButtonClick, self))
+	end
+	self.this.transform:DOKill()
+	if self.slideType == "Axis_X" then
+		self.this.transform:DOAnchorPosX(self.originPosition.x, self.slideDuration):SetEase(Ease.OutQuad)
+	else
+		self.this.transform:DOAnchorPosY(self.originPosition.y, self.slideDuration):SetEase(Ease.OutQuad)
+	end
+	self.isHide = false
+	if not IsNull(self.slideImage) then
+		self.slideImage.sprite = self.slideSprites[1]
+	end
+	if not IsNull(self.containerBlocker) then
+		self.containerBlocker:SetActive(false)
+	end
+end
+
+function SideBarBinder:SlideOut(all)
+	if all and self.slideButtonHandler ~= nil then
+		self.slideButtonHandler:Remove()
+	elseif not all and not IsNull(self.slideButton) and self.slideButtonHandler == nil then
+		self.slideButtonHandler = EventHandlers.UnityEventHandler(self.slideButton.onClick, util.bind(self.OnSlideButtonClick, self))
+	end
+	self.this.transform:DOKill()
+	local offset = self.slideOffset
+	if all then
+		offset = self.slideAllOffset
+	end
+	if self.slideType == "Axis_X" then
+		self.this.transform:DOAnchorPosX(self.originPosition.x + offset, self.slideDuration):SetEase(Ease.InQuad)
+	else
+		self.this.transform:DOAnchorPosY(self.originPosition.y + offset, self.slideDuration):SetEase(Ease.InQuad)
+	end
+	self.isHide = true
+	if not IsNull(self.slideImage) then
+		self.slideImage.sprite = self.slideSprites[2]
+	end
+	if not IsNull(self.containerBlocker) then
+		self.containerBlocker:SetActive(true)
+	end
+end
+
+function SideBarBinder:OnSlideButtonClick(gameObject, eventData)
+	if self.isHide then
+		self:SlideIn()
+		self.SideState = "Show"
+		self.binding:UpdateSource()
+	else
+		self:SlideOut()
+		self.SideState = "Hide"
+		self.binding:UpdateSource()
+	end
+end
+
+package.loaded["DataBinding/ExtraBinder/SideBarBinder"] = SideBarBinder
+return SideBarBinder

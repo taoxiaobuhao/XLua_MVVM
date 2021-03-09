@@ -1,0 +1,138 @@
+local Binding = require "DataBinding/Binding/Binding"
+local ListDynamicBinding = {}
+
+---@param sourcePath ObservableList 对象Path
+---@param IDynamicViewFactory ,需实现GameObject CreateViewItem();void ReleaseViewItem(GameObject view); List<int> GetDynamicList();void RefreshView()
+function ListDynamicBinding.CreateBinding(sourcePath, dynamicViewFactory)
+	local self = {}
+	setmetatable(self, ListDynamicBinding)
+	ListDynamicBinding.__index = ListDynamicBinding
+	
+	self.viewFactory = dynamicViewFactory
+	
+	self.sourcePath = sourcePath
+	self.sourcePropertyName = BindingManager.GetPropertyName(sourcePath)
+	
+	self.itemContextList = {}
+	return self
+end
+
+--region  LocalFunction
+
+function ListDynamicBinding:ResetItems()
+	for i, v in ipairs(self.itemContextList) do
+		v:UnbindSource()
+		self.viewFactory:ReleaseViewItem(v.this.gameObject)
+	end
+	self.itemContextList = {}
+	if self.observableSource == nil then
+		return
+	end
+	local validItemIndexList = self.viewFactory:GetDynamicList()
+	for i, v in ipairs(validItemIndexList) do
+		local itemSource = self.observableSource:GetItem(v)
+		if itemSource ~= nil then
+			local view = self.viewFactory:CreateViewItem()
+			local dataContext = GameUtil.GetLuaComponent(view, "DataContext")
+			if dataContext == nil then
+				dataContext = GameUtil.AddLuaComponent(view, "LuaScripts/DataBinding/DataContext/DataContext")
+			end
+			dataContext = dataContext.returnScriptEnv
+			dataContext:BindSource(itemSource)
+			table.insert(self.itemContextList, dataContext)
+		end
+	end
+end
+
+function ListDynamicBinding:OnSourcePropertyChanged(sender, propertyName)
+	if not self:IsBound() then
+		BindingManager.Error("Is not bound ,but source property change called back")
+		return
+	end
+	
+	if sender ~= self.source then
+		--BindingManager.Error("Invalid sender {0}:{1}", sender, sender.GetHashCode());
+		return
+	end
+	
+	if propertyName ~= nil and self.sourcePath ~= propertyName then
+		return
+	end
+	
+	self:ResetItems()
+end
+
+function ListDynamicBinding:OnCollectPropertyChanged(sender, propertyName)
+	if not self:IsBound() then
+		BindingManager.Error("Is not bound ,but source property change called back")
+		return
+	end
+	
+	if sender ~= self.observableSource then
+		--BindingManager.Error("Invalid sender {0}:{1}", sender, sender.GetHashCode());
+		return
+	end
+	
+	self:ResetItems()
+end
+
+function ListDynamicBinding:OnCollectChanged(obj, args)
+
+end
+
+--endregion
+
+--region IBinding
+
+function ListDynamicBinding:IsBound()
+	return self.source ~= nil
+end
+
+function ListDynamicBinding:Bind(source)
+	if source == nil then
+		UnityEngine.Debug.LogError("source is null")
+		return
+	end
+	
+	if self:IsBound() then
+		self:Unbind()
+	end
+	
+	local bindingSource = BindingManager.GetPropertyValue(source, self.sourcePath)
+	if bindingSource == nil then
+		UnityEngine.Debug.LogError("Binding failed, collectionObject is null", self.viewFactory.this.gameObject)
+		return
+	end
+	if bindingSource.CollectionChanged == nil or bindingSource.PropertyChanged == nil then
+		UnityEngine.Debug.LogError("Binding failed, source must be create by ObservableList", self.viewFactory.this.gameObject)
+		return
+	end
+	
+	--set source
+	self.source = source
+	self.observableSource = bindingSource
+	
+	self.sourcePropertyChangedEvent = self.source.PropertyChanged:Register(util.bind(self.OnSourcePropertyChanged, self))
+	self.collectPropertyChangedEvent = self.observableSource.PropertyChanged:Register(util.bind(self.OnCollectPropertyChanged, self))
+	self.collectChangedEvent = self.observableSource.PropertyChanged:Register(util.bind(self.OnCollectChanged, self))
+	
+	self:ResetItems()
+end
+
+function ListDynamicBinding:Unbind()
+	if not self:IsBound() then
+		return
+	end
+	
+	self.sourcePropertyChangedEvent:Remove()
+	self.collectPropertyChangedEvent:Remove()
+	self.collectChangedEvent:Remove()
+	
+	self.source = nil
+	
+	self:ResetItems()
+end
+
+--endregion
+
+return ListDynamicBinding

@@ -1,0 +1,167 @@
+local EventHandlers = require "Utils/EventHandlers"
+
+local ObservableList = {}
+
+function ObservableList.new()
+	local CollectionChanged = EventHandlers.Event()--Action<object, NotifyCollectionChangedEventArgs>
+	local PropertyChanged = EventHandlers.Event()--Action<object, string>
+	local o = { first = nil, last = nil, size = 0, CollectionChanged = CollectionChanged, PropertyChanged = PropertyChanged }
+	setmetatable(o, ObservableList)
+	ObservableList.__index = ObservableList
+	return o
+end
+
+function ObservableList:IsEmpty()
+	if self.size == 0 and self.first == nil and self.last == nil then
+		return true
+	end
+	return false
+end
+
+function ObservableList:GetCount()
+	return self.size
+end
+
+--Debug
+local function Printf(value)
+	--LogMgr.Log("<color=orange>ObservableList</color> " .. value)
+end
+
+function ObservableList:_AddValue(data)
+	local lst = {}
+	lst.pre = nil
+	lst.value = data
+	lst.next = nil
+	if self.last == nil then
+		self.first = lst
+		self.last = lst
+	else
+		lst.pre = self.last
+		self.last.next = lst
+		self.last = lst
+	end
+	self.size = self.size + 1
+	self:OnCollectionChanged(nil)
+	Printf("Add:" .. tostring(data))
+end
+
+function ObservableList:Add(data)
+	self:_AddValue(data)
+	self:OnCollectionChanged(nil)
+end
+
+function ObservableList:AddRange_i(tableList)
+	for i, v in ipairs(tableList) do
+		self:_AddValue(v)
+	end
+	--[[	local args=NotifyCollectionChangedEventArgs.new()]]
+	self:OnCollectionChanged(nil)
+end
+
+function ObservableList:AddRange_p(tableList)
+	for i, v in pairs(tableList) do
+		self:_AddValue(v)
+	end
+	--[[	local args=NotifyCollectionChangedEventArgs.new()]]
+	self:OnCollectionChanged(nil)
+end
+
+function ObservableList:Remove(data)
+	if self:Contains(data) == false then
+		Printf("Remove failed,don't find data in list")
+		return
+	end
+	
+	local tempData = self.first
+	while tempData ~= nil and tempData.value ~= data do
+		tempData = tempData.next
+	end
+	if tempData == self.first then
+		if tempData == self.last then
+			self.first = nil
+			self.last = nil
+		else
+			self.first = tempData.next
+			self.first.pre = nil
+		end
+	elseif tempData == self.last then
+		self.last = tempData.pre
+		self.last.next = nil
+	else
+		tempData.pre.next = tempData.next
+		tempData.next.pre = tempData.pre
+	end
+	
+	self.size = self.size - 1
+	Printf("Remove:" .. tostring(tempData.value))
+	tempData = nil
+	self:OnCollectionChanged(nil)
+end
+
+function ObservableList:Contains(data)
+	if self:IsEmpty() then
+		return false
+	end
+	if self.first == self.last then
+		if self.first.value == data then
+			return true
+		end
+		return false
+	end
+	local tempData = self.first
+	while tempData ~= nil and tempData.value ~= data do
+		tempData = tempData.next
+	end
+	if tempData == nil then
+		return false
+	end
+	return true
+end
+
+--index 从1取值
+function ObservableList:GetItem(index)
+	if index < 1 or index > self.size then
+		return nil
+	end
+	local indexFlag = 1
+	local tempData = self.first
+	while indexFlag < index do
+		tempData = tempData.next
+		indexFlag = indexFlag + 1
+	end
+	return tempData.value
+end
+
+function ObservableList:Clear()
+	self.first = nil
+	self.last = nil
+	self.size = 0
+	Printf("Clear")
+	self:OnCollectionChanged(nil)
+end
+
+--  for value in X:Iterator() do
+--      print(tostring(value))
+--  end
+function ObservableList:Iterator()
+	local current = self.first
+	return function()
+		local temp = current
+		if temp == nil then
+			return nil
+		end
+		current = current.next
+		return temp.value
+	end
+end
+
+--region Event
+
+function ObservableList:OnCollectionChanged(args)
+	--[[	self.CollectionChanged:Call(self,args)]]
+	self.PropertyChanged:Call(self, "Count")
+end
+
+--endregion
+
+return ObservableList

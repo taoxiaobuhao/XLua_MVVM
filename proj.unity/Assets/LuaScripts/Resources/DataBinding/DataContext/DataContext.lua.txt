@@ -1,0 +1,95 @@
+if package.loaded["DataBinding/DataContext/DataContext"] ~= nil then
+	return package.loaded["DataBinding/DataContext/DataContext"]
+end
+
+local DataContext = BaseClass("DataContext")
+
+--MonoBehaviour
+function DataContext:Awake()
+	self.bindingList = {}
+end
+
+function DataContext:IsBound()
+	return self.source ~= nil
+end
+
+function DataContext:BindSource(source)
+	if self:IsBound() then
+		self:UnbindSource()
+	end
+	
+	self.source = source
+	
+	for i, v in ipairs(self.bindingList) do
+		v:Bind(source)
+	end
+end
+
+function DataContext:UnbindSource()
+	if not self:IsBound() then
+		return
+	end
+	
+	self.source = nil
+	
+	for i, v in ipairs(self.bindingList) do
+		v:Unbind()
+	end
+end
+
+function DataContext:AddBinding(binding)
+	if binding == nil then
+		return
+	end
+	
+	if self.bindingList[binding] ~= nil then
+		return
+	end
+	
+	table.insert(self.bindingList, binding)
+	
+	if self:IsBound() then
+		binding:Bind(self.source)
+	end
+end
+
+function DataContext:AddBindings(bindings)
+	if bindings == nil then
+		return
+	end
+	
+	for i, v in ipairs(bindings) do
+		self:AddBinding(v)
+	end
+end
+
+function DataContext:RemoveBinding(binding)
+	if binding == nil then
+		return
+	end
+	if self.bindingList[binding] == nil then
+		return
+	end
+	local templyList = {}
+	for i, v in ipairs(self.bindingList) do
+		if v ~= binding then
+			table.insert(templyList, v)
+		end
+	end
+	self.bindingList = templyList
+	if self:IsBound() then
+		binding:Unbind()
+	end
+end
+
+function DataContext:RemoveBindings(bindings)
+	if bindings == nil then
+		return
+	end
+	for i, v in ipairs(bindings) do
+		self:RemoveBinding(v)
+	end
+end
+
+package.loaded["DataBinding/DataContext/DataContext"] = DataContext
+return DataContext

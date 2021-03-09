@@ -1,0 +1,83 @@
+if package.loaded["TestP001/TestViewModel"] ~= nil then
+	return package.loaded["TestP001/TestViewModel"]
+end
+
+local AutoParameter = require "Utils/AutoParameter"
+local ObservableData = require "DataBinding/Binding/ObservableData"
+local ObservableList = require "DataBinding/Binding/ObservableList"
+local ScrollItemTemplate = require "Test/ScrollItemTemplate"
+
+local TestViewModel = BaseClass("TestViewModel")
+
+function TestViewModel.AutoParameters(self, go, injection)
+	AutoParameter:SetContent(self, go, injection)
+end
+
+--MonoBehaviour
+function TestViewModel:Awake()
+	TestViewModel.AutoParameters(self, self.this.gameObject, self.this.injections[0])
+end
+
+function TestViewModel:Start()
+	local obsList = ObservableList.new()
+	obsList:AddRange_p(ScrollItemTemplate:Lis("P001Particle"))
+	print("===== " .. tostring(obsList:GetCount()))
+	--test bind
+	self.PlayerInfoData = {
+		ClickHeadCommand = function()
+			for value in self.PlayerInfoData.obsList:Iterator() do
+				print(tostring(value.Icon))
+			end
+		end, HeadIcon = "", PlayerLevel = 1, PlayerInfo = {
+			PlayerLevel = 2,
+			PlayerName = "aaa"
+		},
+		obsList = obsList,
+		SelectScrollItem = ScrollItemTemplate:Tem("TopHair_00"),
+		RemoveScrollItem = function()
+			self.PlayerInfoData.obsList:Remove(self.PlayerInfoData.obsList:GetItem(1))
+		end,
+		AddScrollItem = function()
+			self.PlayerInfoData.obsList:Add(self.PlayerInfoData.obsList:GetItem(1))
+		end
+	}
+	self.InfoData2 = {
+		ClickHeadCommand = function()
+			print("click head 2")
+			self.PlayerInfoData.PlayerInfo.PlayerLevel = self.PlayerInfoData.PlayerInfo.PlayerLevel + 1
+		end, HeadIcon = "", PlayerLevel = 1, PlayerInfo = {
+			PlayerLevel = 2,
+			PlayerName = "bbb"
+		}
+	}
+	self.PlayerInfoData.obsList:AddRange_p(ScrollItemTemplate:Lis("Eyeliner_"))
+	for v in self.PlayerInfoData.obsList:Iterator() do
+		v.ClickCommand = function()
+			self.PlayerInfoData.SelectScrollItem = v
+			print("====> " .. tostring(v.key))
+		end
+	end
+	
+	ObservableData.new(self.PlayerInfoData, "PlayerViewModel")
+	ObservableData.new(self.InfoData2, "PlayerViewModel2")
+	--[[	ObservableData.new(self.obsList, "obsList")]]
+	
+	--[[DOVirtual.DelayedCall(3, function()
+		self.InfoData2.HeadIcon = "Arts/UI/Common/Login/day01.png"
+		self.InfoData2.PlayerLevel = 3
+		self.InfoData2.PlayerInfo.PlayerLevel = 4
+	end)]]
+
+end
+
+function TestViewModel:OnDestroy()
+	--[[	BindingManager.RemoveSource(self)]]
+	ObservableData.dispose(self.ObserveData)
+	ObservableData.dispose(self.InfoData2)
+	--[[	ObservableData.dispose(self.obsList)]]
+end
+
+--TestViewModel
+
+package.loaded["DataBinding/TestViewModel"] = TestViewModel
+return TestViewModel

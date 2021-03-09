@@ -1,0 +1,17 @@
+local EventHandlers = require "Utils/EventHandlers"
+local BroadcastTrigger = {}
+
+function BroadcastTrigger.new()
+	local o = {}
+	o.SetEvent = EventHandlers.Event()
+	o.ResetEvent = EventHandlers.Event()
+	o.SetTrigger = function(self)
+		self.SetEvent:Call()
+	end
+	o.ResetTrigger = function(self)
+		self.ResetEvent:Call()
+	end
+	return o
+end
+
+return BroadcastTrigger
