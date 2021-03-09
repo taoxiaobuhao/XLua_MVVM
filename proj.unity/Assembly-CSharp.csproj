@@ -137,7 +137,6 @@
     <None Include="Assets\XLua\Resources\perf\profiler.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\DataBinding\Binding\ListDynamicBinding.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\DataBinding\Support\NotifyCollectionChangedEventArgs.lua.txt" />
-    <None Include="Assets\LuaScripts\Resources\Test\P001ViewModel.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\CommonMain.lua.txt" />
     <None Include="Assets\XLua\Resources\perf\memory.lua.txt" />
     <None Include="Assets\LuaScripts\Resources\Common\list.lua.txt" />
